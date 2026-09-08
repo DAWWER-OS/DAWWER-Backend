@@ -1,0 +1,6 @@
+@DawwerOS.WebApi_HostAddress = http://localhost:5037
+
+GET {{DawwerOS.WebApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
