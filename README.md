@@ -182,7 +182,7 @@ public DbSet<WasteItem> WasteItems => Set<WasteItem>();
 // DawwerOS.Business/DTOs/WasteItems/WasteItemDto.cs
 public class WasteItemDto
 {
-    public int Id { get; set; }
+    public Guid Id { get; set; }
     public string Title { get; set; } = string.Empty;
     public decimal WeightKg { get; set; }
 }
@@ -253,8 +253,8 @@ public class WasteItemsController : ControllerBase
     public async Task<IActionResult> GetAll(CancellationToken ct) 
         => Ok(await _service.GetAllAsync(ct));
 
-    [HttpGet("{id:int}")]
-    public async Task<IActionResult> GetById(int id, CancellationToken ct)
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
         var result = await _service.GetByIdAsync(id, ct);
         return result.Success ? Ok(result) : NotFound(result);
@@ -267,15 +267,15 @@ public class WasteItemsController : ControllerBase
         return result.Success ? CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, result) : BadRequest(result);
     }
 
-    [HttpPut("{id:int}")]
-    public async Task<IActionResult> Update(int id, [FromBody] UpdateWasteItemDto dto, CancellationToken ct)
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateWasteItemDto dto, CancellationToken ct)
     {
         var result = await _service.UpdateAsync(id, dto, ct);
         return result.Success ? Ok(result) : BadRequest(result);
     }
 
-    [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id, CancellationToken ct)
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
         var result = await _service.DeleteAsync(id, ct);
         return result.Success ? Ok(result) : NotFound(result);

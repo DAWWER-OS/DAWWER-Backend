@@ -1,8 +1,8 @@
 namespace DawwerOS.DAL.Entities;
 
-public abstract class BaseEntity
+public abstract class BaseEntity<TKey>
 {
-    public int Id { get; set; }
+    public TKey Id { get; set; } = default!;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -12,3 +12,12 @@ public abstract class BaseEntity
 
     public string? UpdatedBy { get; set; }
 }
+
+public abstract class BaseEntity : BaseEntity<Guid>
+{
+    protected BaseEntity()
+    {
+        Id = Guid.NewGuid();
+    }
+}
+

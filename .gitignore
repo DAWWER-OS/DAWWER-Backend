@@ -34,6 +34,10 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
+uploads/
+**/uploads/
+scratch_features.json
+trello_state.json
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/

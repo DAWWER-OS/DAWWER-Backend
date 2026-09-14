@@ -20,13 +20,13 @@ public interface IGenericService<TEntity, TResponseDto, in TCreateDto, in TUpdat
         Expression<Func<TEntity, bool>> predicate,
         CancellationToken cancellationToken = default);
 
-    Task<ApiResponse<TResponseDto>> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<ApiResponse<TResponseDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task<ApiResponse<TResponseDto>> FirstOrDefaultAsync(
         Expression<Func<TEntity, bool>> predicate,
         CancellationToken cancellationToken = default);
 
-    Task<ApiResponse<bool>> ExistsAsync(int id, CancellationToken cancellationToken = default);
+    Task<ApiResponse<bool>> ExistsAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task<ApiResponse<bool>> ExistsAsync(
         Expression<Func<TEntity, bool>> predicate,
@@ -41,11 +41,11 @@ public interface IGenericService<TEntity, TResponseDto, in TCreateDto, in TUpdat
         CancellationToken cancellationToken = default);
 
     Task<ApiResponse<TResponseDto>> UpdateAsync(
-        int id,
+        Guid id,
         TUpdateDto dto,
         CancellationToken cancellationToken = default);
 
-    Task<ApiResponse<bool>> DeleteAsync(int id, CancellationToken cancellationToken = default);
+    Task<ApiResponse<bool>> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

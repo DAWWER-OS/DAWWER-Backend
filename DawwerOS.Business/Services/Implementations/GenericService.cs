@@ -99,7 +99,7 @@ public abstract class GenericService<TEntity, TResponseDto, TCreateDto, TUpdateD
         return ApiResponse<IEnumerable<TResponseDto>>.Ok(dtos, $"{EntityName} search results retrieved successfully.");
     }
 
-    public virtual async Task<ApiResponse<TResponseDto>> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    public virtual async Task<ApiResponse<TResponseDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var entity = await _repository.GetByIdAsync(id, cancellationToken);
         if (entity == null)
@@ -123,7 +123,7 @@ public abstract class GenericService<TEntity, TResponseDto, TCreateDto, TUpdateD
         return ApiResponse<TResponseDto>.Ok(MapToResponseDto(entity), $"{EntityName} retrieved successfully.");
     }
 
-    public virtual async Task<ApiResponse<bool>> ExistsAsync(int id, CancellationToken cancellationToken = default)
+    public virtual async Task<ApiResponse<bool>> ExistsAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var exists = await _repository.AnyAsync(e => e.Id == id, cancellationToken);
         return ApiResponse<bool>.Ok(exists);
@@ -169,7 +169,7 @@ public abstract class GenericService<TEntity, TResponseDto, TCreateDto, TUpdateD
     }
 
     public virtual async Task<ApiResponse<TResponseDto>> UpdateAsync(
-        int id,
+        Guid id,
         TUpdateDto dto,
         CancellationToken cancellationToken = default)
     {
@@ -194,7 +194,7 @@ public abstract class GenericService<TEntity, TResponseDto, TCreateDto, TUpdateD
         return ApiResponse<TResponseDto>.Ok(MapToResponseDto(entity), $"{EntityName} updated successfully.");
     }
 
-    public virtual async Task<ApiResponse<bool>> DeleteAsync(int id, CancellationToken cancellationToken = default)
+    public virtual async Task<ApiResponse<bool>> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var entity = await _repository.GetByIdAsync(id, cancellationToken);
         if (entity == null)
