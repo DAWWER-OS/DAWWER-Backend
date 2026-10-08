@@ -23,6 +23,21 @@ public class AppDbContext : DbContext
     public DbSet<StoreStaffPermission> StoreStaffPermissions => Set<StoreStaffPermission>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<StoreProduct> StoreProducts => Set<StoreProduct>();
+    public DbSet<Order> Orders => Set<Order>();
+    public DbSet<OrderItemSnapshot> OrderItemSnapshots => Set<OrderItemSnapshot>();
+    public DbSet<OrderFulfillmentSnapshot> OrderFulfillmentSnapshots => Set<OrderFulfillmentSnapshot>();
+    public DbSet<OrderStatusHistory> OrderStatusHistories => Set<OrderStatusHistory>();
+    public DbSet<StockReservation> StockReservations => Set<StockReservation>();
+    public DbSet<Cart> Carts => Set<Cart>();
+    public DbSet<CartItem> CartItems => Set<CartItem>();
+    public DbSet<District> Districts => Set<District>();
+    public DbSet<MerchantDeliveryZone> MerchantDeliveryZones => Set<MerchantDeliveryZone>();
+    public DbSet<OrderAmendment> OrderAmendments => Set<OrderAmendment>();
+    public DbSet<OrderAmendmentItem> OrderAmendmentItems => Set<OrderAmendmentItem>();
+    public DbSet<RefundTask> RefundTasks => Set<RefundTask>();
+    public DbSet<FinancialDiscrepancy> FinancialDiscrepancies => Set<FinancialDiscrepancy>();
+    public DbSet<PaymentReceiptProof> PaymentReceiptProofs => Set<PaymentReceiptProof>();
 
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)

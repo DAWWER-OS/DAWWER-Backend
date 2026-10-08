@@ -8,6 +8,7 @@ using DawwerOS.Business.Common;
 using DawwerOS.Business.Common.Settings;
 using DawwerOS.Business.Services.Interfaces;
 using DawwerOS.DAL;
+using DawwerOS.DAL.Context;
 using DawwerOS.DAL.Entities;
 using DawwerOS.DAL.Entities.Enums;
 using DawwerOS.DAL.Repositories.Interfaces;
@@ -16,14 +17,45 @@ using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
 
+using Microsoft.AspNetCore.Mvc;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add Controllers
-builder.Services.AddControllers();
+// Add Controllers with standardized ApiResponse validation error envelope
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var errors = context.ModelState
+                .Where(x => x.Value?.Errors.Count > 0)
+                .SelectMany(x => x.Value!.Errors.Select(e =>
+                    !string.IsNullOrWhiteSpace(e.ErrorMessage)
+                        ? e.ErrorMessage
+                        : $"{x.Key}: Invalid value."))
+                .ToList();
+
+            var response = ApiResponse<object>.Fail("Validation failed.", errors);
+            return new BadRequestObjectResult(response);
+        };
+    });
+
+// Configure CORS: Allow all websites / origins, methods, headers, and credentials
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.SetIsOriginAllowed(_ => true)
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
+});
 
 // Add HttpContextAccessor for request context and IP resolution in audit logs
 builder.Services.AddHttpContextAccessor();
@@ -76,7 +108,38 @@ builder.Services.AddSwaggerGen(options =>
 
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>() ?? new JwtSettings();
+
+var envSecretKey = builder.Configuration["JWT_SECRET_KEY"] ?? Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
+if (!string.IsNullOrWhiteSpace(envSecretKey))
+{
+    jwtSettings.Key = envSecretKey;
+}
+
+var envIssuer = builder.Configuration["JWT_ISSUER"] ?? Environment.GetEnvironmentVariable("JWT_ISSUER");
+if (!string.IsNullOrWhiteSpace(envIssuer))
+{
+    jwtSettings.Issuer = envIssuer;
+}
+
+var envAudience = builder.Configuration["JWT_AUDIENCE"] ?? Environment.GetEnvironmentVariable("JWT_AUDIENCE");
+if (!string.IsNullOrWhiteSpace(envAudience))
+{
+    jwtSettings.Audience = envAudience;
+}
+
+var envAlgorithm = builder.Configuration["JWT_ALGORITHM"] ?? Environment.GetEnvironmentVariable("JWT_ALGORITHM");
+if (!string.IsNullOrWhiteSpace(envAlgorithm))
+{
+    jwtSettings.Algorithm = envAlgorithm;
+}
+
 var key = Encoding.UTF8.GetBytes(jwtSettings.Key);
+var expectedAlgorithm = jwtSettings.Algorithm?.Trim().ToUpperInvariant() switch
+{
+    "HS384" => SecurityAlgorithms.HmacSha384,
+    "HS512" => SecurityAlgorithms.HmacSha512,
+    _ => SecurityAlgorithms.HmacSha256
+};
 
 builder.Services.AddAuthentication(options =>
 {
@@ -96,7 +159,8 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidAudience = jwtSettings.Audience,
         ValidateLifetime = true,
-        ClockSkew = TimeSpan.Zero
+        ClockSkew = TimeSpan.Zero,
+        ValidAlgorithms = new[] { expectedAlgorithm }
     };
 
     options.Events = new JwtBearerEvents
@@ -226,6 +290,9 @@ app.UseSwaggerUI(options =>
     options.RoutePrefix = "swagger";
 });
 
+// Enable CORS
+app.UseCors();
+
 app.UseHttpsRedirection();
 
 // Rate Limiter
@@ -244,4 +311,26 @@ app.MapGet("/", () => Results.Redirect("/swagger"));
 
 app.MapControllers();
 
+// Apply pending EF Core migrations automatically on startup and seed Super Admin user
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
+    try
+    {
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        logger.LogInformation("Checking and applying pending database migrations...");
+        await dbContext.Database.MigrateAsync();
+        logger.LogInformation("Database migrations applied successfully.");
+
+        await DbInitializer.SeedSuperAdminAsync(services);
+    }
+    catch (Exception ex)
+    {
+        logger.LogCritical(ex, "An error occurred while migrating or seeding the database on startup. Application will continue starting, but database operations may fail.");
+    }
+}
+
 app.Run();
+
+public partial class Program { }

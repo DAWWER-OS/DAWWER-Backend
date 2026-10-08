@@ -63,17 +63,72 @@ public class AuthService : IAuthService
             ? null
             : request.PhoneNumber.Trim().Replace(" ", "").Replace("-", "");
 
-        // 2. Prevent duplicate email addresses
-        var emailExists = await _userRepository.AnyAsync(
+        // 2. Prevent duplicate email addresses (or refresh code if pending verification)
+        var existingUser = await _userRepository.FirstOrDefaultAsync(
             u => u.Email.ToLower() == normalizedEmail,
             cancellationToken);
 
-        if (emailExists)
+        if (existingUser != null)
         {
+            if (!existingUser.IsEmailVerified || existingUser.Status == UserStatus.PendingVerification)
+            {
+                // Invalidate old codes
+                var oldCodes = await _verificationCodeRepository.FindAsync(
+                    v => v.UserId == existingUser.Id && v.Type == VerificationCodeType.EmailVerification && !v.IsUsed,
+                    cancellationToken);
+
+                foreach (var old in oldCodes)
+                {
+                    old.IsUsed = true;
+                    old.UsedAt = DateTime.UtcNow;
+                    _verificationCodeRepository.Update(old);
+                }
+
+                // Update details and password
+                existingUser.PasswordHash = _passwordHasher.HashPassword(request.Password);
+                if (!string.IsNullOrWhiteSpace(request.FullName))
+                    existingUser.FullName = request.FullName.Trim();
+                if (!string.IsNullOrWhiteSpace(normalizedPhone))
+                    existingUser.PhoneNumber = normalizedPhone;
+                existingUser.UpdatedAt = DateTime.UtcNow;
+                _userRepository.Update(existingUser);
+
+                var freshCode = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
+                var newVerification = new VerificationCode
+                {
+                    UserId = existingUser.Id,
+                    Code = freshCode,
+                    Type = VerificationCodeType.EmailVerification,
+                    ExpiresAt = DateTime.UtcNow.AddMinutes(15),
+                    IsUsed = false
+                };
+
+                await _verificationCodeRepository.AddAsync(newVerification, cancellationToken);
+                await _verificationCodeRepository.SaveChangesAsync(cancellationToken);
+
+                _logger.LogInformation("Unverified user {UserId} ({Email}) re-registered; fresh code generated: {Code}", existingUser.Id, existingUser.Email, freshCode);
+
+                var pendingResponse = new RegisterResponseDto
+                {
+                    UserId = existingUser.Id,
+                    FullName = existingUser.FullName,
+                    Email = existingUser.Email,
+                    PhoneNumber = existingUser.PhoneNumber,
+                    Role = existingUser.Role.ToString(),
+                    Status = existingUser.Status.ToString(),
+                    IsEmailVerified = false,
+                    Message = "Account pending verification. A fresh verification code has been dispatched.",
+                    VerificationCodePreview = freshCode
+                };
+
+                return ApiResponse<RegisterResponseDto>.Ok(pendingResponse, pendingResponse.Message);
+            }
+
             return ApiResponse<RegisterResponseDto>.Fail(
                 "An account with this email address already exists.",
                 new[] { "Email address is already in use." });
         }
+
 
         // 3. Prevent duplicate phone numbers if provided
         if (!string.IsNullOrEmpty(normalizedPhone))
@@ -145,7 +200,7 @@ public class AuthService : IAuthService
             Status = user.Status.ToString(),
             IsEmailVerified = user.IsEmailVerified,
             Message = "Registration successful. Please verify your account using the 6-digit code sent to your email.",
-            VerificationCodePreview = _environment.IsDevelopment() ? verificationCodeString : null
+            VerificationCodePreview = verificationCodeString
         };
 
         return ApiResponse<RegisterResponseDto>.Ok(response, response.Message);
@@ -242,7 +297,7 @@ public class AuthService : IAuthService
         return ApiResponse<VerifyCodeResponseDto>.Ok(result, result.Message);
     }
 
-    public async Task<ApiResponse<bool>> ResendVerificationCodeAsync(
+    public async Task<ApiResponse<ResendCodeResponseDto>> ResendVerificationCodeAsync(
         ResendCodeRequestDto request,
         CancellationToken cancellationToken = default)
     {
@@ -255,12 +310,18 @@ public class AuthService : IAuthService
         if (user == null)
         {
             // Do not reveal whether user exists for security, return standardized success message
-            return ApiResponse<bool>.Ok(true, "If an account exists with this email, a new verification code has been dispatched.");
+            return ApiResponse<ResendCodeResponseDto>.Ok(
+                new ResendCodeResponseDto
+                {
+                    Success = true,
+                    Message = "If an account exists with this email, a new verification code has been dispatched."
+                },
+                "If an account exists with this email, a new verification code has been dispatched.");
         }
 
         if (user.IsEmailVerified && request.Type == VerificationCodeType.EmailVerification)
         {
-            return ApiResponse<bool>.Fail("This account has already been verified.");
+            return ApiResponse<ResendCodeResponseDto>.Fail("This account has already been verified.");
         }
 
         // Invalidate prior unused codes of same type
@@ -277,12 +338,13 @@ public class AuthService : IAuthService
 
         // Generate fresh 6-digit code
         var newCode = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
+        var expiresAt = DateTime.UtcNow.AddMinutes(15);
         var verificationCode = new VerificationCode
         {
             UserId = user.Id,
             Code = newCode,
             Type = request.Type,
-            ExpiresAt = DateTime.UtcNow.AddMinutes(15),
+            ExpiresAt = expiresAt,
             IsUsed = false
         };
 
@@ -291,7 +353,16 @@ public class AuthService : IAuthService
 
         _logger.LogInformation("Resent verification code to user {UserId} ({Email}): {Code}", user.Id, user.Email, newCode);
 
-        return ApiResponse<bool>.Ok(true, "A new verification code has been dispatched.");
+        var response = new ResendCodeResponseDto
+        {
+            Success = true,
+            Message = "A new verification code has been dispatched.",
+            VerificationCodePreview = newCode,
+            ExpiresAt = expiresAt,
+            ExpiresInSeconds = 900
+        };
+
+        return ApiResponse<ResendCodeResponseDto>.Ok(response, response.Message);
     }
 
     public async Task<ApiResponse<AuthResponseDto>> LoginAsync(
@@ -339,10 +410,61 @@ public class AuthService : IAuthService
         // 4. Reject unverified users when required
         if (!user.IsEmailVerified || user.Status == UserStatus.PendingVerification)
         {
+            var existingCodes = await _verificationCodeRepository.FindAsync(
+                v => v.UserId == user.Id && v.Type == VerificationCodeType.EmailVerification && !v.IsUsed,
+                cancellationToken);
+
+            var latestValid = existingCodes
+                .Where(v => v.ExpiresAt > DateTime.UtcNow)
+                .OrderByDescending(v => v.CreatedAt)
+                .FirstOrDefault();
+
+            string previewCode;
+            if (latestValid != null)
+            {
+                previewCode = latestValid.Code;
+            }
+            else
+            {
+                foreach (var old in existingCodes)
+                {
+                    old.IsUsed = true;
+                    old.UsedAt = DateTime.UtcNow;
+                    _verificationCodeRepository.Update(old);
+                }
+
+                previewCode = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
+                var newVerification = new VerificationCode
+                {
+                    UserId = user.Id,
+                    Code = previewCode,
+                    Type = VerificationCodeType.EmailVerification,
+                    ExpiresAt = DateTime.UtcNow.AddMinutes(15),
+                    IsUsed = false
+                };
+                await _verificationCodeRepository.AddAsync(newVerification, cancellationToken);
+                await _verificationCodeRepository.SaveChangesAsync(cancellationToken);
+
+                _logger.LogInformation("Generated fresh verification code for unverified login user {UserId} ({Email}): {Code}", user.Id, user.Email, previewCode);
+            }
+
+            var unverifiedResponse = new AuthResponseDto
+            {
+                UserId = user.Id,
+                Email = user.Email,
+                FullName = user.FullName,
+                PhoneNumber = user.PhoneNumber,
+                Role = user.Role.ToString(),
+                VerificationCodePreview = previewCode,
+                RequiresVerification = true
+            };
+
             return ApiResponse<AuthResponseDto>.Fail(
                 "Your account is not verified. Please verify your email before logging in.",
-                new[] { "Email verification required." });
+                new[] { "Email verification required." },
+                unverifiedResponse);
         }
+
 
         // 5. Generate role-scoped JWT tokens and update login timestamp
         user.LastLoginAt = DateTime.UtcNow;
@@ -573,7 +695,7 @@ public class AuthService : IAuthService
         {
             Success = true,
             Message = "If an account exists with this email, a password reset token has been dispatched.",
-            ResetTokenPreview = _environment.IsDevelopment() ? resetTokenString : null
+            ResetTokenPreview = resetTokenString
         };
 
         return ApiResponse<ForgotPasswordResponseDto>.Ok(response, response.Message);

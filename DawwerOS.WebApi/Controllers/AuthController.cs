@@ -85,8 +85,8 @@ public class AuthController : ControllerBase
     /// </summary>
     [HttpPost("resend-code")]
     [AllowAnonymous]
-    [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<ResendCodeResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<ResendCodeResponseDto>), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ResendCode(
         [FromBody] ResendCodeRequestDto request,
         CancellationToken cancellationToken)
@@ -97,7 +97,7 @@ public class AuthController : ControllerBase
                 .SelectMany(v => v.Errors)
                 .Select(e => e.ErrorMessage)
                 .ToList();
-            return BadRequest(ApiResponse<bool>.Fail("Validation failed.", errors));
+            return BadRequest(ApiResponse<ResendCodeResponseDto>.Fail("Validation failed.", errors));
         }
 
         var result = await _authService.ResendVerificationCodeAsync(request, cancellationToken);

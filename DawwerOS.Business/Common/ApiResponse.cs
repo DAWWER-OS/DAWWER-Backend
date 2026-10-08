@@ -31,4 +31,15 @@ public class ApiResponse<T>
             Errors = errors
         };
     }
+
+    public static ApiResponse<T> Fail(string message, IEnumerable<string>? errors, T? data)
+    {
+        return new ApiResponse<T>
+        {
+            Success = false,
+            Message = message,
+            Data = data,
+            Errors = errors
+        };
+    }
 }

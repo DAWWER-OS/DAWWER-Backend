@@ -8,6 +8,7 @@ public static class StorePermissions
     public const string ManageInventory = "Inventory.Manage";
     public const string ViewOrders = "Orders.View";
     public const string ManageOrders = "Orders.Manage";
+    public const string PaymentReview = "Orders.PaymentReview";
     public const string ManageStaff = "Staff.Manage";
     public const string ManageStore = "Store.Manage";
 
@@ -19,6 +20,7 @@ public static class StorePermissions
         ManageInventory,
         ViewOrders,
         ManageOrders,
+        PaymentReview,
         ManageStaff,
         ManageStore
     };

@@ -17,4 +17,9 @@ public class AuthResponseDto
     public string RefreshToken { get; set; } = string.Empty;
 
     public DateTime ExpiresAt { get; set; }
+
+    public bool RequiresVerification { get; set; } = false;
+
+    public string? VerificationCodePreview { get; set; }
 }
+

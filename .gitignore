@@ -486,3 +486,8 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# AI Assistant & SpecKit local workspaces
+.agents/
+.specify/
+specs/

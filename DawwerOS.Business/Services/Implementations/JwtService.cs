@@ -48,7 +48,7 @@ public class JwtService : IJwtService
         }
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Key));
-        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var credentials = new SigningCredentials(key, GetSecurityAlgorithm());
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {
@@ -86,12 +86,23 @@ public class JwtService : IJwtService
         var tokenHandler = new JwtSecurityTokenHandler();
         var principal = tokenHandler.ValidateToken(token, tokenValidationParameters, out var securityToken);
 
+        var expectedAlgorithm = GetSecurityAlgorithm();
         if (securityToken is not JwtSecurityToken jwtSecurityToken ||
-            !jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase))
+            !jwtSecurityToken.Header.Alg.Equals(expectedAlgorithm, StringComparison.InvariantCultureIgnoreCase))
         {
             throw new SecurityTokenException("Invalid token algorithm");
         }
 
         return principal;
+    }
+
+    private string GetSecurityAlgorithm()
+    {
+        return _jwtSettings.Algorithm?.Trim().ToUpperInvariant() switch
+        {
+            "HS384" => SecurityAlgorithms.HmacSha384,
+            "HS512" => SecurityAlgorithms.HmacSha512,
+            _ => SecurityAlgorithms.HmacSha256
+        };
     }
 }

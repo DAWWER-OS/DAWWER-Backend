@@ -8,7 +8,11 @@
       "launchUrl": "swagger",
       "applicationUrl": "http://localhost:5037",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "JWT_ALGORITHM": "HS256",
+        "JWT_AUDIENCE": "daweros-users",
+        "JWT_ISSUER": "daweros-api",
+        "JWT_SECRET_KEY": "44392802951809b472db612e674b9fc43acd37ebdcda24b318c8550c40b5be6c"
       }
     },
     "https": {
@@ -18,7 +22,11 @@
       "launchUrl": "swagger",
       "applicationUrl": "https://localhost:7212;http://localhost:5037",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "JWT_ALGORITHM": "HS256",
+        "JWT_AUDIENCE": "daweros-users",
+        "JWT_ISSUER": "daweros-api",
+        "JWT_SECRET_KEY": "44392802951809b472db612e674b9fc43acd37ebdcda24b318c8550c40b5be6c"
       }
     }
   }

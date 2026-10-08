@@ -9,7 +9,7 @@ public interface IAuthService
 
     Task<ApiResponse<VerifyCodeResponseDto>> VerifyCodeAsync(VerifyCodeRequestDto request, CancellationToken cancellationToken = default);
 
-    Task<ApiResponse<bool>> ResendVerificationCodeAsync(ResendCodeRequestDto request, CancellationToken cancellationToken = default);
+    Task<ApiResponse<ResendCodeResponseDto>> ResendVerificationCodeAsync(ResendCodeRequestDto request, CancellationToken cancellationToken = default);
 
     Task<ApiResponse<AuthResponseDto>> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default);
 
