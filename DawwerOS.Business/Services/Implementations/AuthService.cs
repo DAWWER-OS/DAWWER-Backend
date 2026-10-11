@@ -24,6 +24,7 @@ public class AuthService : IAuthService
     private readonly IPasswordHasherService _passwordHasher;
     private readonly IJwtService _jwtService;
     private readonly ITokenRevocationService _tokenRevocationService;
+    private readonly IEmailService _emailService;
     private readonly AppDbContext _dbContext;
     private readonly JwtSettings _jwtSettings;
     private readonly IHostEnvironment _environment;
@@ -36,6 +37,7 @@ public class AuthService : IAuthService
         IPasswordHasherService passwordHasher,
         IJwtService jwtService,
         ITokenRevocationService tokenRevocationService,
+        IEmailService emailService,
         AppDbContext dbContext,
         IOptions<JwtSettings> jwtOptions,
         IHostEnvironment environment,
@@ -47,6 +49,7 @@ public class AuthService : IAuthService
         _passwordHasher = passwordHasher;
         _jwtService = jwtService;
         _tokenRevocationService = tokenRevocationService;
+        _emailService = emailService;
         _dbContext = dbContext;
         _jwtSettings = jwtOptions.Value;
         _environment = environment;
@@ -108,6 +111,23 @@ public class AuthService : IAuthService
 
                 _logger.LogInformation("Unverified user {UserId} ({Email}) re-registered; fresh code generated: {Code}", existingUser.Id, existingUser.Email, freshCode);
 
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _emailService.SendVerificationCodeEmailAsync(
+                            existingUser.Email,
+                            existingUser.FullName,
+                            freshCode,
+                            expiryMinutes: 15,
+                            CancellationToken.None);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to dispatch verification email to {Email}", existingUser.Email);
+                    }
+                });
+
                 var pendingResponse = new RegisterResponseDto
                 {
                     UserId = existingUser.Id,
@@ -117,8 +137,8 @@ public class AuthService : IAuthService
                     Role = existingUser.Role.ToString(),
                     Status = existingUser.Status.ToString(),
                     IsEmailVerified = false,
-                    Message = "Account pending verification. A fresh verification code has been dispatched.",
-                    VerificationCodePreview = freshCode
+                    Message = "Account pending verification. A fresh verification code has been dispatched to your email.",
+                    VerificationCodePreview = _environment.IsDevelopment() ? freshCode : null
                 };
 
                 return ApiResponse<RegisterResponseDto>.Ok(pendingResponse, pendingResponse.Message);
@@ -190,6 +210,23 @@ public class AuthService : IAuthService
             "User registered successfully: {UserId}, Email: {Email}, Role: {Role}. Verification code generated: {Code}",
             user.Id, user.Email, user.Role, verificationCodeString);
 
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _emailService.SendVerificationCodeEmailAsync(
+                    user.Email,
+                    user.FullName,
+                    verificationCodeString,
+                    expiryMinutes: 15,
+                    CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to dispatch verification email to {Email}", user.Email);
+            }
+        });
+
         var response = new RegisterResponseDto
         {
             UserId = user.Id,
@@ -200,7 +237,7 @@ public class AuthService : IAuthService
             Status = user.Status.ToString(),
             IsEmailVerified = user.IsEmailVerified,
             Message = "Registration successful. Please verify your account using the 6-digit code sent to your email.",
-            VerificationCodePreview = verificationCodeString
+            VerificationCodePreview = _environment.IsDevelopment() ? verificationCodeString : null
         };
 
         return ApiResponse<RegisterResponseDto>.Ok(response, response.Message);
@@ -353,11 +390,31 @@ public class AuthService : IAuthService
 
         _logger.LogInformation("Resent verification code to user {UserId} ({Email}): {Code}", user.Id, user.Email, newCode);
 
+        if (request.Type == VerificationCodeType.EmailVerification)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _emailService.SendVerificationCodeEmailAsync(
+                        user.Email,
+                        user.FullName,
+                        newCode,
+                        expiryMinutes: 15,
+                        CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to dispatch resent verification email to {Email}", user.Email);
+                }
+            });
+        }
+
         var response = new ResendCodeResponseDto
         {
             Success = true,
-            Message = "A new verification code has been dispatched.",
-            VerificationCodePreview = newCode,
+            Message = "A new verification code has been dispatched to your email.",
+            VerificationCodePreview = _environment.IsDevelopment() ? newCode : null,
             ExpiresAt = expiresAt,
             ExpiresInSeconds = 900
         };
@@ -691,11 +748,28 @@ public class AuthService : IAuthService
             "Password reset token generated for user {UserId} ({Email}): {Code}",
             user.Id, user.Email, resetTokenString);
 
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _emailService.SendPasswordResetEmailAsync(
+                    user.Email,
+                    user.FullName,
+                    resetTokenString,
+                    expiryMinutes: 15,
+                    CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to dispatch password reset email to {Email}", user.Email);
+            }
+        });
+
         var response = new ForgotPasswordResponseDto
         {
             Success = true,
-            Message = "If an account exists with this email, a password reset token has been dispatched.",
-            ResetTokenPreview = resetTokenString
+            Message = "If an account exists with this email, a password reset token has been dispatched to your email.",
+            ResetTokenPreview = _environment.IsDevelopment() ? resetTokenString : null
         };
 
         return ApiResponse<ForgotPasswordResponseDto>.Ok(response, response.Message);

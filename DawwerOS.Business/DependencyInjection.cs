@@ -28,6 +28,32 @@ public static class DependencyInjection
                 var envAlgorithm = configuration["JWT_ALGORITHM"] ?? Environment.GetEnvironmentVariable("JWT_ALGORITHM");
                 if (!string.IsNullOrWhiteSpace(envAlgorithm)) settings.Algorithm = envAlgorithm;
             });
+
+            services.Configure<EmailSettings>(settings =>
+            {
+                configuration.GetSection(EmailSettings.SectionName).Bind(settings);
+
+                var envSmtpHost = configuration["SMTP_HOST"] ?? Environment.GetEnvironmentVariable("SMTP_HOST");
+                if (!string.IsNullOrWhiteSpace(envSmtpHost)) settings.SmtpHost = envSmtpHost;
+
+                var envSmtpPort = configuration["SMTP_PORT"] ?? Environment.GetEnvironmentVariable("SMTP_PORT");
+                if (!string.IsNullOrWhiteSpace(envSmtpPort) && int.TryParse(envSmtpPort, out var port)) settings.SmtpPort = port;
+
+                var envSmtpUser = configuration["SMTP_USERNAME"] ?? Environment.GetEnvironmentVariable("SMTP_USERNAME");
+                if (!string.IsNullOrWhiteSpace(envSmtpUser)) settings.SmtpUsername = envSmtpUser;
+
+                var envSmtpPass = configuration["SMTP_PASSWORD"] ?? Environment.GetEnvironmentVariable("SMTP_PASSWORD");
+                if (!string.IsNullOrWhiteSpace(envSmtpPass)) settings.SmtpPassword = envSmtpPass;
+
+                var envSenderEmail = configuration["SMTP_SENDER_EMAIL"] ?? configuration["SMTP_FROM_EMAIL"] ?? Environment.GetEnvironmentVariable("SMTP_SENDER_EMAIL") ?? Environment.GetEnvironmentVariable("SMTP_FROM_EMAIL");
+                if (!string.IsNullOrWhiteSpace(envSenderEmail)) settings.SenderEmail = envSenderEmail;
+
+                var envSenderName = configuration["SMTP_SENDER_NAME"] ?? configuration["SMTP_FROM_NAME"] ?? Environment.GetEnvironmentVariable("SMTP_SENDER_NAME") ?? Environment.GetEnvironmentVariable("SMTP_FROM_NAME");
+                if (!string.IsNullOrWhiteSpace(envSenderName)) settings.SenderName = envSenderName;
+
+                var envEnableSsl = configuration["SMTP_ENABLE_SSL"] ?? Environment.GetEnvironmentVariable("SMTP_ENABLE_SSL");
+                if (!string.IsNullOrWhiteSpace(envEnableSsl) && bool.TryParse(envEnableSsl, out var enableSsl)) settings.EnableSsl = enableSsl;
+            });
         }
 
         services.AddMemoryCache();
@@ -35,6 +61,7 @@ public static class DependencyInjection
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<IPasswordHasherService, PasswordHasherService>();
         services.AddScoped<ITokenRevocationService, TokenRevocationService>();
+        services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IProfileService, ProfileService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IMerchantStoreService, MerchantStoreService>();

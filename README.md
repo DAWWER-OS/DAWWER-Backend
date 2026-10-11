@@ -120,7 +120,34 @@ Update `DawwerOS.WebApi/appsettings.Development.json`:
 }
 ```
 
-### 3. Build the Solution
+### 3. Configure Email Service (Live-Ready SMTP)
+DawwerOS uses **MailKit** for robust, asynchronous email dispatching (account verification OTPs and password reset tokens).
+
+Update `DawwerOS.WebApi/appsettings.json` (or use environment variables for Live deployment):
+```json
+"EmailSettings": {
+  "SmtpHost": "smtp.gmail.com",
+  "SmtpPort": 587,
+  "EnableSsl": true,
+  "SenderName": "منصة دوّر - Dawwer",
+  "SenderEmail": "your-email@gmail.com",
+  "SmtpUsername": "your-email@gmail.com",
+  "SmtpPassword": "your-app-password",
+  "EnableEmailSending": true,
+  "TimeoutSeconds": 15
+}
+```
+
+**Environment Variables for Production / Docker:**
+- `SMTP_HOST` (e.g. `smtp.gmail.com` or `smtp-relay.brevo.com`)
+- `SMTP_PORT` (e.g. `587` or `465`)
+- `SMTP_USERNAME` (your SMTP username)
+- `SMTP_PASSWORD` (your SMTP app password or API key)
+- `SMTP_SENDER_EMAIL` (sender email address)
+- `SMTP_SENDER_NAME` (sender display name)
+- `SMTP_ENABLE_SSL` (`true`)
+
+### 4. Build the Solution
 ```powershell
 dotnet restore
 dotnet build DawwerOS.sln
