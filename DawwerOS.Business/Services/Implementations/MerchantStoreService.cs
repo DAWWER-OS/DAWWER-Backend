@@ -334,22 +334,6 @@ public class MerchantStoreService : IMerchantStoreService
             errors.Add("Store name is required.");
         }
 
-        if (string.IsNullOrWhiteSpace(store.PhoneNumber))
-        {
-            errors.Add("Store contact phone number is required.");
-        }
-
-        if (string.IsNullOrWhiteSpace(store.CommercialRegistrationNumber))
-        {
-            errors.Add("Commercial registration number is required for store review.");
-        }
-
-        var documents = (await _storeDocumentRepository.FindAsync(d => d.StoreId == storeId, cancellationToken)).ToList();
-        if (documents.Count == 0)
-        {
-            errors.Add("At least one verification document (e.g. Commercial Register, License, or Tax Card) must be uploaded.");
-        }
-
         if (errors.Count > 0)
         {
             return ApiResponse<StoreApplicationResponseDto>.Fail(
@@ -370,6 +354,7 @@ public class MerchantStoreService : IMerchantStoreService
             storeId, merchantId);
 
         var owner = await _userRepository.GetByIdAsync(merchantId, cancellationToken);
+        var documents = await _storeDocumentRepository.FindAsync(d => d.StoreId == storeId, cancellationToken);
         var dto = MapToDto(store, owner, documents);
         return ApiResponse<StoreApplicationResponseDto>.Ok(dto, "Store application submitted successfully for administrator review.");
     }
